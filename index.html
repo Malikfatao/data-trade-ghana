@@ -1,0 +1,215 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Data Trade Ghana</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f4f4f4;color:#171717;font-family:Arial,sans-serif}
+header{background:#ffd400;padding:18px 15px}
+.logo{font-size:25px;font-weight:900}
+.logo span{background:#171717;color:#ffd400;padding:4px 7px;border-radius:5px}
+header p{font-size:12px;margin:7px 0 0}
+.hero{background:#171717;color:white;padding:23px 16px}
+.hero h2{margin:0 0 8px;font-size:24px}
+.hero p{margin:0;color:#ddd;font-size:13px}
+.networks{display:flex;gap:8px;padding:14px 12px;background:white;overflow-x:auto}
+.network{padding:11px 14px;border:1px solid #ddd;background:white;border-radius:8px;font-weight:bold;white-space:nowrap}
+.network.active{background:#ffd400;border-color:#ffd400}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:12px}
+.controls input,.controls select{width:100%;padding:12px;border:1px solid #ddd;border-radius:8px;background:white}
+.filters{display:flex;gap:8px;padding:0 12px 12px;overflow-x:auto}
+.filter{border:1px solid #ddd;background:white;border-radius:20px;padding:8px 14px;white-space:nowrap}
+.filter.active{background:#171717;color:#ffd400}
+.count{padding:4px 14px 12px;color:#666;font-size:13px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:0 12px 100px}
+.card{background:white;border:1px solid #e7e7e7;border-radius:12px;padding:13px;box-shadow:0 2px 7px #00000008}
+.cardtop{display:flex;justify-content:space-between;align-items:center;gap:5px}
+.networkname{font-size:11px;font-weight:900}
+.instant{background:#e5f8e9;color:#16833a;padding:5px 7px;border-radius:5px;font-size:9px;font-weight:bold}
+.size{font-size:28px;font-weight:900;margin:15px 0 3px}
+.expiry{font-size:11px;color:#777}
+.price-label{font-size:11px;color:#777;margin-top:15px}
+.price{font-size:21px;font-weight:900;margin:3px 0 12px}
+.buy{width:100%;background:#ffd400;border:0;border-radius:7px;padding:12px;font-weight:900}
+.share{display:block;text-align:center;color:#555;font-size:11px;margin-top:10px;text-decoration:none}
+.bottom{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ddd;display:flex;justify-content:space-around;padding:13px 4px calc(13px + env(safe-area-inset-bottom))}
+.bottom button{border:0;background:none;font-size:12px;font-weight:bold;color:#555}
+.bottom button.active{color:#a17b00}
+.modal{display:none;position:fixed;inset:0;background:#0009;z-index:10;align-items:center;justify-content:center;padding:16px}
+.modalbox{background:white;width:100%;max-width:390px;border-radius:14px;padding:20px}
+.modalbox h2{margin:0 0 8px}
+.modalbox p{font-size:13px;color:#666}
+.modalbox input{width:100%;padding:14px;border:1px solid #ddd;border-radius:8px;margin:7px 0;font-size:15px}
+.modalbox button{width:100%;padding:14px;border:0;border-radius:8px;background:#ffd400;font-weight:900;margin-top:9px}
+.modalbox .close{background:#eee}
+.note{font-size:11px!important;line-height:1.5}
+@media(min-width:650px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));max-width:950px;margin:auto}.controls,.filters,.count{max-width:950px;margin-left:auto;margin-right:auto}}
+</style>
+</head>
+<body>
+<header>
+ <div class="logo">DATA <span>TRADE</span> GHANA</div>
+ <p>Affordable data bundles. Simple and convenient.</p>
+</header>
+
+<section class="hero">
+ <h2>Buy Data Bundles</h2>
+ <p>Choose your network, select your bundle and buy easily.</p>
+</section>
+
+<div class="networks">
+ <button class="network active" onclick="setNetwork('MTN',this)">MTN</button>
+ <button class="network" onclick="setNetwork('MTN Mash Up',this)">MTN MASH UP</button>
+ <button class="network" onclick="setNetwork('Telecel',this)">TELECEL</button>
+ <button class="network" onclick="setNetwork('AirtelTigo',this)">AIRTELTIGO</button>
+</div>
+
+<div class="controls">
+ <input id="search" type="search" placeholder="Search package..." oninput="render()">
+ <select id="sort" onchange="render()">
+  <option value="default">Sort packages</option>
+  <option value="low">Price: Low to High</option>
+  <option value="high">Price: High to Low</option>
+ </select>
+</div>
+
+<div class="filters">
+ <button class="filter active" onclick="setFilter('All',this)">ALL</button>
+ <button class="filter" onclick="setFilter('small',this)">1–5GB</button>
+ <button class="filter" onclick="setFilter('medium',this)">6–15GB</button>
+ <button class="filter" onclick="setFilter('large',this)">15GB+</button>
+</div>
+
+<div class="count" id="count"></div>
+<main class="grid" id="packages"></main>
+
+<nav class="bottom">
+ <button class="active" onclick="goBuy()">🛒 Buy</button>
+ <button onclick="trackOrder()">📦 Track</button>
+ <button onclick="bulkOrder()">📋 Bulk</button>
+ <button onclick="help()">💬 Help</button>
+</nav>
+
+<div class="modal" id="buyModal">
+ <div class="modalbox">
+  <h2>Checkout</h2>
+  <p id="selectedPackage"></p>
+  <input id="phone" type="tel" placeholder="Recipient phone number">
+  <input id="email" type="email" placeholder="Your email address">
+  <p class="note">Secure Paystack checkout will be connected in the next step. No payment will be taken yet.</p>
+  <button onclick="continueOrder()">CONTINUE TO PAYMENT</button>
+  <button class="close" onclick="closeModal()">CANCEL</button>
+ </div>
+</div>
+
+<script>
+const packages=[
+ {size:1,price:4.70},
+ {size:2,price:9.50},
+ {size:3,price:14.30},
+ {size:4,price:19.50},
+ {size:5,price:26},
+ {size:6,price:30},
+ {size:8,price:38},
+ {size:10,price:46},
+ {size:15,price:65},
+ {size:20,price:85},
+ {size:25,price:106},
+ {size:30,price:128},
+ {size:40,price:178},
+ {size:50,price:210}
+];
+
+let currentNetwork="MTN";
+let currentFilter="All";
+let selectedPackage=null;
+
+function render(){
+ let list=packages.filter(p=>{
+  const q=document.getElementById("search").value.toLowerCase();
+  const matchSearch=(p.size+"gb").includes(q);
+  let matchFilter=true;
+  if(currentFilter==="small")matchFilter=p.size<=5;
+  if(currentFilter==="medium")matchFilter=p.size>=6&&p.size<=15;
+  if(currentFilter==="large")matchFilter=p.size>15;
+  return matchSearch&&matchFilter;
+ });
+
+ const sort=document.getElementById("sort").value;
+ if(sort==="low")list.sort((a,b)=>a.price-b.price);
+ if(sort==="high")list.sort((a,b)=>b.price-a.price);
+
+ document.getElementById("count").textContent=list.length+" packages available";
+
+ document.getElementById("packages").innerHTML=list.length?list.map(p=>`
+  <article class="card">
+   <div class="cardtop">
+    <span class="networkname">${currentNetwork.toUpperCase()}</span>
+    <span class="instant">INSTANT</span>
+   </div>
+   <div class="size">${p.size}GB</div>
+   <div class="expiry">Non-Expiry</div>
+   <div class="price-label">You Pay</div>
+   <div class="price">GH₵ ${p.price.toFixed(2)}</div>
+   <button class="buy" onclick="openBuy(${p.size},${p.price})">BUY NOW</button>
+   <a class="share" href="#" onclick="sharePackage(${p.size},${p.price});return false">↗ Share package</a>
+  </article>
+ `).join(""):'<div style="grid-column:1/-1;text-align:center;padding:30px">No packages found.</div>';
+}
+
+function setNetwork(network,button){
+ currentNetwork=network;
+ document.querySelectorAll(".network").forEach(b=>b.classList.remove("active"));
+ button.classList.add("active");
+ render();
+}
+
+function setFilter(filter,button){
+ currentFilter=filter;
+ document.querySelectorAll(".filter").forEach(b=>b.classList.remove("active"));
+ button.classList.add("active");
+ render();
+}
+
+function openBuy(size,price){
+ selectedPackage={size,price,network:currentNetwork};
+ document.getElementById("selectedPackage").textContent=
+ currentNetwork+" · "+size+"GB · GH₵ "+price.toFixed(2);
+ document.getElementById("buyModal").style.display="flex";
+}
+
+function closeModal(){
+ document.getElementById("buyModal").style.display="none";
+}
+
+function continueOrder(){
+ const phone=document.getElementById("phone").value.trim();
+ const email=document.getElementById("email").value.trim();
+ if(!/^0\d{9}$/.test(phone)){
+  alert("Enter a valid Ghana phone number, e.g. 0241234567.");
+  return;
+ }
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+  alert("Enter a valid email address.");
+  return;
+ }
+ alert("Your checkout details are ready. Paystack will be connected next. No payment has been made.");
+}
+
+function sharePackage(size,price){
+ const message=currentNetwork+" "+size+"GB data bundle for GH₵ "+price.toFixed(2)+" at Data Trade Ghana.";
+ if(navigator.share)navigator.share({title:"Data Trade Ghana",text:message}).catch(()=>{});
+ else alert(message);
+}
+
+function goBuy(){window.scrollTo({top:0,behavior:"smooth"});}
+function trackOrder(){alert("Order tracking will be added soon.");}
+function bulkOrder(){alert("Bulk ordering will be added soon.");}
+function help(){alert("Data Trade Ghana support details will be added soon.");}
+render();
+</script>
+</body>
+</html>
