@@ -34,6 +34,7 @@ header p{font-size:12px;margin:7px 0 0}
 .price-label{font-size:11px;color:#777;margin-top:15px}
 .price{font-size:21px;font-weight:900;margin:3px 0 12px}
 .buy{width:100%;background:#ffd400;border:0;border-radius:7px;padding:12px;font-weight:900}
+.buy:disabled{opacity:.6}
 .share{display:block;text-align:center;color:#555;font-size:11px;margin-top:10px;text-decoration:none}
 .bottom{position:fixed;bottom:0;left:0;right:0;background:white;border-top:1px solid #ddd;display:flex;justify-content:space-around;padding:13px 4px calc(13px + env(safe-area-inset-bottom))}
 .bottom button{border:0;background:none;font-size:12px;font-weight:bold;color:#555}
@@ -46,10 +47,14 @@ header p{font-size:12px;margin:7px 0 0}
 .modalbox button{width:100%;padding:14px;border:0;border-radius:8px;background:#ffd400;font-weight:900;margin-top:9px}
 .modalbox .close{background:#eee}
 .note{font-size:11px!important;line-height:1.5}
-@media(min-width:650px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));max-width:950px;margin:auto}.controls,.filters,.count{max-width:950px;margin-left:auto;margin-right:auto}}
+@media(min-width:650px){
+ .grid{grid-template-columns:repeat(3,minmax(0,1fr));max-width:950px;margin:auto}
+ .controls,.filters,.count{max-width:950px;margin-left:auto;margin-right:auto}
+}
 </style>
 </head>
 <body>
+
 <header>
  <div class="logo">DATA <span>TRADE</span> GHANA</div>
  <p>Affordable data bundles. Simple and convenient.</p>
@@ -99,8 +104,8 @@ header p{font-size:12px;margin:7px 0 0}
   <p id="selectedPackage"></p>
   <input id="phone" type="tel" placeholder="Recipient phone number">
   <input id="email" type="email" placeholder="Your email address">
-  <p class="note">Secure Paystack checkout will be connected in the next step. No payment will be taken yet.</p>
-  <button onclick="continueOrder()">CONTINUE TO PAYMENT</button>
+  <p class="note">You will be redirected to Paystack to complete your payment securely.</p>
+  <button id="payButton" onclick="continueOrder()">PAY NOW</button>
   <button class="close" onclick="closeModal()">CANCEL</button>
  </div>
 </div>
@@ -132,9 +137,11 @@ function render(){
   const q=document.getElementById("search").value.toLowerCase();
   const matchSearch=(p.size+"gb").includes(q);
   let matchFilter=true;
+
   if(currentFilter==="small")matchFilter=p.size<=5;
   if(currentFilter==="medium")matchFilter=p.size>=6&&p.size<=15;
   if(currentFilter==="large")matchFilter=p.size>15;
+
   return matchSearch&&matchFilter;
  });
 
@@ -142,9 +149,11 @@ function render(){
  if(sort==="low")list.sort((a,b)=>a.price-b.price);
  if(sort==="high")list.sort((a,b)=>b.price-a.price);
 
- document.getElementById("count").textContent=list.length+" packages available";
+ document.getElementById("count").textContent=
+ list.length+" packages available";
 
- document.getElementById("packages").innerHTML=list.length?list.map(p=>`
+ document.getElementById("packages").innerHTML=list.length?
+ list.map(p=>`
   <article class="card">
    <div class="cardtop">
     <span class="networkname">${currentNetwork.toUpperCase()}</span>
@@ -157,7 +166,8 @@ function render(){
    <button class="buy" onclick="openBuy(${p.size},${p.price})">BUY NOW</button>
    <a class="share" href="#" onclick="sharePackage(${p.size},${p.price});return false">↗ Share package</a>
   </article>
- `).join(""):'<div style="grid-column:1/-1;text-align:center;padding:30px">No packages found.</div>';
+ `).join("") :
+ '<div style="grid-column:1/-1;text-align:center;padding:30px">No packages found.</div>';
 }
 
 function setNetwork(network,button){
@@ -175,9 +185,15 @@ function setFilter(filter,button){
 }
 
 function openBuy(size,price){
- selectedPackage={size,price,network:currentNetwork};
+ selectedPackage={
+  size:size,
+  price:price,
+  network:currentNetwork
+ };
+
  document.getElementById("selectedPackage").textContent=
  currentNetwork+" · "+size+"GB · GH₵ "+price.toFixed(2);
+
  document.getElementById("buyModal").style.display="flex";
 }
 
@@ -185,30 +201,89 @@ function closeModal(){
  document.getElementById("buyModal").style.display="none";
 }
 
-function continueOrder(){
+async function continueOrder(){
  const phone=document.getElementById("phone").value.trim();
  const email=document.getElementById("email").value.trim();
+ const button=document.getElementById("payButton");
+
  if(!/^0\d{9}$/.test(phone)){
   alert("Enter a valid Ghana phone number, e.g. 0241234567.");
   return;
  }
+
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
   alert("Enter a valid email address.");
   return;
  }
- alert("Your checkout details are ready. Paystack will be connected next. No payment has been made.");
+
+ if(!selectedPackage){
+  alert("Please select a package first.");
+  return;
+ }
+
+ button.disabled=true;
+ button.textContent="CONNECTING TO PAYSTACK...";
+
+ try{
+  const response=await fetch("/api/paystack",{
+   method:"POST",
+   headers:{
+    "Content-Type":"application/json"
+   },
+   body:JSON.stringify({
+    action:"initialize",
+    email:email,
+    phone:phone,
+    network:selectedPackage.network,
+    size:selectedPackage.size
+   })
+  });
+
+  const result=await response.json();
+
+  if(!response.ok||!result.authorization_url){
+   throw new Error(result.error||"Could not start payment.");
+  }
+
+  window.location.href=result.authorization_url;
+
+ }catch(error){
+  alert(error.message||"Payment connection failed. Please try again.");
+  button.disabled=false;
+  button.textContent="PAY NOW";
+ }
 }
 
 function sharePackage(size,price){
- const message=currentNetwork+" "+size+"GB data bundle for GH₵ "+price.toFixed(2)+" at Data Trade Ghana.";
- if(navigator.share)navigator.share({title:"Data Trade Ghana",text:message}).catch(()=>{});
- else alert(message);
+ const message=currentNetwork+" "+size+"GB data bundle for GH₵ "+
+ price.toFixed(2)+" at Data Trade Ghana.";
+
+ if(navigator.share){
+  navigator.share({
+   title:"Data Trade Ghana",
+   text:message
+  }).catch(()=>{});
+ }else{
+  alert(message);
+ }
 }
 
-function goBuy(){window.scrollTo({top:0,behavior:"smooth"});}
-function trackOrder(){alert("Order tracking will be added soon.");}
-function bulkOrder(){alert("Bulk ordering will be added soon.");}
-function help(){alert("Data Trade Ghana support details will be added soon.");}
+function goBuy(){
+ window.scrollTo({top:0,behavior:"smooth"});
+}
+
+function trackOrder(){
+ alert("Order tracking will be added soon.");
+}
+
+function bulkOrder(){
+ alert("Bulk ordering will be added soon.");
+}
+
+function help(){
+ alert("Data Trade Ghana support details will be added soon.");
+}
+
 render();
 </script>
 </body>
